@@ -1,0 +1,413 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Latin progress bar</title>
+<style>
+  :root{
+    --ink:#2B3A38; --mut:#6B7C79; --line:#DDE5E2; --bg:#FFFFFF; --bg2:#F7F9F8;
+    --teal:#3E8E82; --teal-l:#E1F5EE;
+    --amber:#BA7517; --amber-l:#FAEEDA;
+    --coral:#993C1D; --coral-l:#FAECE7;
+    --gray:#5F5E5A; --gray-l:#F1EFE8;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;color:var(--ink);background:var(--bg2);line-height:1.5;}
+  .wrap{max-width:920px;margin:0 auto;padding:32px 20px 80px;}
+  header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:28px;flex-wrap:wrap;gap:12px;}
+  h1{font-size:22px;font-weight:600;}
+  .sub{color:var(--mut);font-size:13px;margin-top:4px;}
+  button{font:inherit;cursor:pointer;border:1px solid var(--line);background:var(--bg);color:var(--ink);padding:7px 14px;border-radius:6px;}
+  button:hover{border-color:var(--teal);}
+  button.primary{background:var(--teal);color:#fff;border-color:var(--teal);}
+  button.primary:hover{opacity:.9;}
+  button.small{padding:4px 9px;font-size:12px;}
+  section{background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:20px;margin-bottom:16px;}
+  h2{font-size:15px;font-weight:600;margin-bottom:14px;}
+  .stats-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;margin-bottom:4px;}
+  .stat{background:var(--bg2);border-radius:8px;padding:14px;text-align:center;}
+  .stat .num{font-size:26px;font-weight:700;color:var(--teal);}
+  .stat .lbl{font-size:11px;color:var(--mut);margin-top:2px;}
+  .bar-outer{background:var(--gray-l);border-radius:6px;height:10px;overflow:hidden;margin-top:10px;}
+  .bar-inner{background:var(--teal);height:100%;border-radius:6px;transition:width .3s;}
+  .status-counts{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;}
+  .pill{font-size:12px;padding:3px 10px;border-radius:20px;}
+  .pill.s0{background:var(--gray-l);color:var(--gray);}
+  .pill.s30{background:var(--coral-l);color:var(--coral);}
+  .pill.s70{background:var(--amber-l);color:var(--amber);}
+  .pill.s100{background:var(--teal-l);color:var(--teal);}
+  .group{margin-bottom:14px;}
+  .group-title{font-size:13px;font-weight:600;color:var(--mut);margin-bottom:6px;text-transform:uppercase;letter-spacing:.02em;}
+  .topic-row{display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-top:1px solid var(--line);gap:10px;flex-wrap:wrap;}
+  .group .topic-row:first-of-type{border-top:none;}
+  .topic-name{font-size:14px;flex:1;min-width:160px;}
+  select.status-select{font:inherit;font-size:12px;padding:4px 8px;border-radius:6px;border:1px solid var(--line);background:var(--bg);}
+  .badge{font-size:12px;padding:3px 10px;border-radius:20px;white-space:nowrap;}
+  .journal-entry, .list-item{border-top:1px solid var(--line);padding:12px 0;}
+  .journal-entry:first-of-type, .list-item:first-of-type{border-top:none;}
+  .journal-head{display:flex;justify-content:space-between;font-size:13px;color:var(--mut);margin-bottom:4px;}
+  .journal-body p{font-size:14px;margin-top:4px;}
+  .journal-body b{font-weight:600;}
+  .empty{color:var(--mut);font-size:13px;font-style:italic;}
+  textarea, input[type=text], input[type=number], input[type=password]{
+    font:inherit;font-size:14px;width:100%;padding:8px 10px;border:1px solid var(--line);border-radius:6px;background:var(--bg2);color:var(--ink);
+  }
+  textarea{min-height:70px;resize:vertical;}
+  .form-row{margin-bottom:10px;}
+  .form-row label{font-size:12px;color:var(--mut);display:block;margin-bottom:4px;}
+  .del{background:none;border:none;color:var(--mut);font-size:12px;padding:2px 6px;}
+  .del:hover{color:var(--coral);}
+  .edit-badge{background:var(--teal-l);color:var(--teal);font-size:11px;padding:3px 9px;border-radius:20px;}
+  .modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.3);display:flex;align-items:center;justify-content:center;z-index:10;padding:20px;}
+  .modal{background:var(--bg);border-radius:10px;padding:24px;max-width:340px;width:100%;}
+  .modal h3{font-size:15px;margin-bottom:10px;}
+  .modal .row{display:flex;gap:8px;margin-top:14px;}
+  .chapters-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(38px,1fr));gap:6px;margin-top:10px;}
+  .chap{aspect-ratio:1;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:11px;cursor:default;background:var(--gray-l);color:var(--mut);}
+  .chap.reading{background:var(--amber-l);color:var(--amber);}
+  .chap.done{background:var(--teal-l);color:var(--teal);}
+  .chap.editable{cursor:pointer;}
+  .chap.editable:hover{outline:1px solid var(--teal);}
+  .legend{display:flex;gap:14px;flex-wrap:wrap;margin-top:10px;font-size:12px;color:var(--mut);}
+  .legend span{display:inline-flex;align-items:center;gap:5px;}
+  .dot{width:9px;height:9px;border-radius:3px;display:inline-block;}
+  footer{text-align:center;color:var(--mut);font-size:12px;margin-top:24px;}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <div>
+      <h1>Latin progress bar</h1>
+      <div class="sub" id="statusLine">Загрузка…</div>
+    </div>
+    <div id="authArea"></div>
+  </header>
+
+  <section>
+    <h2>Общий прогресс</h2>
+    <div class="stats-row">
+      <div class="stat"><div class="num" id="pctOverall">—</div><div class="lbl">готовность к программе</div></div>
+      <div class="stat"><div class="num" id="cntTotal">—</div><div class="lbl">тем всего</div></div>
+      <div class="stat"><div class="num" id="cntDone">—</div><div class="lbl">освоено</div></div>
+    </div>
+    <div class="bar-outer"><div class="bar-inner" id="overallBar" style="width:0%"></div></div>
+    <div class="status-counts" id="statusCounts"></div>
+  </section>
+
+  <section>
+    <h2>Прогресс по разделам программы</h2>
+    <div id="topicGroups"></div>
+  </section>
+
+  <section>
+    <h2>Чтение Familia Romana</h2>
+    <div class="sub" id="readingSummary"></div>
+    <div class="chapters-grid" id="chaptersGrid"></div>
+    <div class="legend">
+      <span><i class="dot" style="background:var(--gray-l)"></i>не читали</span>
+      <span><i class="dot" style="background:var(--amber-l)"></i>читаем</span>
+      <span><i class="dot" style="background:var(--teal-l)"></i>прочитано</span>
+    </div>
+  </section>
+
+  <section>
+    <h2>Журнал занятий</h2>
+    <div id="journalAddArea"></div>
+    <div id="journalList"></div>
+  </section>
+
+  <section>
+    <h2>Трудности</h2>
+    <div id="difficultiesAddArea"></div>
+    <div id="difficultiesList"></div>
+  </section>
+
+  <section>
+    <h2>Достижения</h2>
+    <div id="achievementsAddArea"></div>
+    <div id="achievementsList"></div>
+  </section>
+
+  <footer>Иван · трекер готовности к школьной программе латыни</footer>
+</div>
+
+<div id="modalRoot"></div>
+
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+<script>
+const firebaseConfig = {
+  apiKey: "AIzaSyAU1yBUKj2Na5wOe0cxdtP303y5ZC_preg",
+  authDomain: "latin-tracker.firebaseapp.com",
+  databaseURL: "https://latin-tracker-default-rtdb.europe-west1.firebasedatabase.app",
+  projectId: "latin-tracker",
+  storageBucket: "latin-tracker.firebasestorage.app",
+  messagingSenderId: "723091135899",
+  appId: "1:723091135899:web:71eba2e6eaa8c1f517953e",
+  measurementId: "G-EDQQBJTFDN"
+};
+firebase.initializeApp(firebaseConfig);
+const db = firebase.database();
+const ROOT = "ivan_tracker_2026";
+
+const EDIT_PASSWORD = "ivan2026"; // смени на свой пароль перед деплоем
+let editMode = false;
+
+const STATUS = {
+  "0":   { label: "Не изучали",         pct: 0,   cls: "s0"   },
+  "30":  { label: "Изучаем",            pct: 30,  cls: "s30"  },
+  "70":  { label: "Требует закрепления",pct: 70,  cls: "s70"  },
+  "100": { label: "Освоено",            pct: 100, cls: "s100" }
+};
+const STATUS_ORDER = ["0","30","70","100"];
+
+const TOPIC_GROUPS = [
+  { title: "Фонетика и алфавит", topics: ["Фонетика и алфавит"] },
+  { title: "I-II склонения", topics: ["I-II — Nominativus", "I-II — Genetivus", "I-II — Dativus", "I-II — Accusativus", "I-II — Ablativus", "II склонение — Vocativus"] },
+  { title: "III склонение", topics: ["III — Nominativus", "III — Genetivus", "III — Dativus", "III — Accusativus", "III — Ablativus"] },
+  { title: "IV-V склонения", topics: ["IV-V склонения"] },
+  { title: "Прилагательные", topics: ["Прилагательные I-II склонения", "Прилагательные III склонения", "Прилагательные — Comparativus", "Прилагательные — Superlativus"] },
+  { title: "Местоимения", topics: ["Местоимения — притяжательные", "Местоимения — личные", "Местоимения — относительные", "Местоимения — вопросительные", "Местоимения — неопределенные", "Местоимения — отрицательные", "Местоимения — указательные"] },
+  { title: "Глагольная система", topics: ["Praesens", "Imperfectum", "Futurum I", "Perfectum", "Plusquamperfectum", "Futurum II", "Императив — позитивный", "Императив — отрицательный"] },
+  { title: "Participium", topics: ["Participium — perfectum passivi", "Participium — praesentis activi"] },
+  { title: "Наречия", topics: ["Наречия — Comparativus", "Наречия — Superlativus"] }
+];
+const ALL_TOPICS = TOPIC_GROUPS.flatMap(g => g.topics);
+const TOTAL_CHAPTERS = 35;
+
+let state = { topics:{}, journal:[], difficulties:[], achievements:[], reading:{} };
+
+function defaultTopics(){
+  const t = {};
+  ALL_TOPICS.forEach(name => { t[name] = "0"; });
+  return t;
+}
+
+// ---------- Firebase sync ----------
+db.ref(ROOT).on("value", snap => {
+  const val = snap.val() || {};
+  state.topics = val.topics && Object.keys(val.topics).length ? val.topics : defaultTopics();
+  state.journal = val.journal ? Object.entries(val.journal).map(([id,v]) => ({id, ...v})) : [];
+  state.difficulties = val.difficulties ? Object.entries(val.difficulties).map(([id,v]) => ({id, ...v})) : [];
+  state.achievements = val.achievements ? Object.entries(val.achievements).map(([id,v]) => ({id, ...v})) : [];
+  state.reading = val.reading || {};
+  document.getElementById("statusLine").textContent = "Синхронизировано";
+  render();
+});
+
+function saveTopics(){ db.ref(ROOT + "/topics").set(state.topics); }
+function pushJournal(entry){ db.ref(ROOT + "/journal").push(entry); }
+function pushDifficulty(entry){ db.ref(ROOT + "/difficulties").push(entry); }
+function pushAchievement(entry){ db.ref(ROOT + "/achievements").push(entry); }
+function delNode(path,id){ db.ref(ROOT + "/" + path + "/" + id).remove(); }
+function saveReading(){ db.ref(ROOT + "/reading").set(state.reading); }
+
+// ---------- Auth (soft client-side gate) ----------
+function renderAuth(){
+  const area = document.getElementById("authArea");
+  if(editMode){
+    area.innerHTML = `<span class="edit-badge">Режим редактирования</span> <button class="small" onclick="exitEdit()">Выйти</button>`;
+  }else{
+    area.innerHTML = `<button class="small" onclick="showLogin()">Войти как преподаватель</button>`;
+  }
+}
+function showLogin(){
+  document.getElementById("modalRoot").innerHTML = `
+    <div class="modal-bg" onclick="if(event.target===this)closeModal()">
+      <div class="modal">
+        <h3>Вход для преподавателя</h3>
+        <input type="password" id="pwInput" placeholder="Пароль">
+        <div class="row">
+          <button class="primary" onclick="tryLogin()">Войти</button>
+          <button onclick="closeModal()">Отмена</button>
+        </div>
+      </div>
+    </div>`;
+  document.getElementById("pwInput").focus();
+}
+function tryLogin(){
+  const v = document.getElementById("pwInput").value;
+  if(v === EDIT_PASSWORD){ editMode = true; closeModal(); renderAuth(); render(); }
+  else alert("Неверный пароль");
+}
+function exitEdit(){ editMode = false; renderAuth(); render(); }
+function closeModal(){ document.getElementById("modalRoot").innerHTML = ""; }
+
+// ---------- Render ----------
+function render(){
+  renderAuth();
+  renderOverall();
+  renderTopicGroups();
+  renderReading();
+  renderJournal();
+  renderDifficulties();
+  renderAchievements();
+}
+
+function renderOverall(){
+  const vals = ALL_TOPICS.map(t => STATUS[state.topics[t] || "0"].pct);
+  const avg = vals.length ? Math.round(vals.reduce((a,b)=>a+b,0)/vals.length) : 0;
+  document.getElementById("pctOverall").textContent = avg + "%";
+  document.getElementById("cntTotal").textContent = ALL_TOPICS.length;
+  const doneCount = ALL_TOPICS.filter(t => state.topics[t] === "100").length;
+  document.getElementById("cntDone").textContent = doneCount;
+  document.getElementById("overallBar").style.width = avg + "%";
+
+  const counts = {"0":0,"30":0,"70":0,"100":0};
+  ALL_TOPICS.forEach(t => { counts[state.topics[t] || "0"]++; });
+  document.getElementById("statusCounts").innerHTML = STATUS_ORDER.map(k =>
+    `<span class="pill ${STATUS[k].cls}">${STATUS[k].label}: ${counts[k]}</span>`
+  ).join("");
+}
+
+function renderTopicGroups(){
+  const el = document.getElementById("topicGroups");
+  el.innerHTML = TOPIC_GROUPS.map(g => {
+    const rows = g.topics.map(name => {
+      const st = state.topics[name] || "0";
+      const info = STATUS[st];
+      if(editMode){
+        const options = STATUS_ORDER.map(k => `<option value="${k}" ${k===st?"selected":""}>${STATUS[k].label}</option>`).join("");
+        return `<div class="topic-row">
+          <div class="topic-name">${name}</div>
+          <select class="status-select" onchange="changeStatus('${name.replace(/'/g,"\\'")}', this.value)">${options}</select>
+        </div>`;
+      }
+      return `<div class="topic-row">
+        <div class="topic-name">${name}</div>
+        <span class="badge pill ${info.cls}">${info.label}</span>
+      </div>`;
+    }).join("");
+    return `<div class="group"><div class="group-title">${g.title}</div>${rows}</div>`;
+  }).join("");
+}
+
+function changeStatus(topic, newVal){
+  const old = state.topics[topic];
+  if(old === newVal) return;
+  state.topics[topic] = newVal;
+  saveTopics();
+}
+
+function renderReading(){
+  const done = Object.values(state.reading).filter(v => v === "done").length;
+  document.getElementById("readingSummary").textContent = `Прочитано глав: ${done} из ${TOTAL_CHAPTERS}`;
+  const grid = document.getElementById("chaptersGrid");
+  let html = "";
+  for(let i=1;i<=TOTAL_CHAPTERS;i++){
+    const st = state.reading[i] || "none";
+    const cls = st === "done" ? "done" : st === "reading" ? "reading" : "";
+    html += `<div class="chap ${cls} ${editMode?"editable":""}" ${editMode?`onclick="cycleChapter(${i})"`:""} title="Глава ${i}">${i}</div>`;
+  }
+  grid.innerHTML = html;
+}
+function cycleChapter(i){
+  const cur = state.reading[i] || "none";
+  const next = cur === "none" ? "reading" : cur === "reading" ? "done" : "none";
+  if(next === "none") delete state.reading[i]; else state.reading[i] = next;
+  saveReading();
+}
+
+function renderJournal(){
+  const addArea = document.getElementById("journalAddArea");
+  addArea.innerHTML = editMode ? `<button class="small primary" onclick="showJournalForm()">+ Добавить занятие</button>` : "";
+  const list = document.getElementById("journalList");
+  const items = [...state.journal].sort((a,b) => (b.lessonNum||0)-(a.lessonNum||0));
+  if(!items.length){ list.innerHTML = `<div class="empty">Записей пока нет.</div>`; return; }
+  list.innerHTML = items.map(e => `
+    <div class="journal-entry">
+      <div class="journal-head"><span>Урок №${e.lessonNum||"—"} · ${e.date||""}</span>${editMode?`<button class="del" onclick="delNode('journal','${e.id}')">удалить</button>`:""}</div>
+      <div class="journal-body">
+        ${e.topics?`<p><b>Прошли:</b> ${e.topics}</p>`:""}
+        ${e.difficulties?`<p><b>Сложности:</b> ${e.difficulties}</p>`:""}
+        ${e.homework?`<p><b>Домашнее задание:</b> ${e.homework}</p>`:""}
+        ${e.comment?`<p><b>Комментарий:</b> ${e.comment}</p>`:""}
+      </div>
+    </div>`).join("");
+}
+function showJournalForm(){
+  document.getElementById("modalRoot").innerHTML = `
+    <div class="modal-bg" onclick="if(event.target===this)closeModal()">
+      <div class="modal" style="max-width:480px">
+        <h3>Новое занятие</h3>
+        <div class="form-row"><label>Номер урока</label><input type="number" id="jNum"></div>
+        <div class="form-row"><label>Дата</label><input type="text" id="jDate" placeholder="дд.мм.гггг"></div>
+        <div class="form-row"><label>Прошли</label><textarea id="jTopics"></textarea></div>
+        <div class="form-row"><label>Сложности</label><textarea id="jDiff"></textarea></div>
+        <div class="form-row"><label>Домашнее задание</label><textarea id="jHw"></textarea></div>
+        <div class="form-row"><label>Комментарий</label><textarea id="jComment"></textarea></div>
+        <div class="row">
+          <button class="primary" onclick="submitJournal()">Сохранить</button>
+          <button onclick="closeModal()">Отмена</button>
+        </div>
+      </div>
+    </div>`;
+}
+function submitJournal(){
+  const entry = {
+    lessonNum: Number(document.getElementById("jNum").value) || null,
+    date: document.getElementById("jDate").value,
+    topics: document.getElementById("jTopics").value,
+    difficulties: document.getElementById("jDiff").value,
+    homework: document.getElementById("jHw").value,
+    comment: document.getElementById("jComment").value
+  };
+  pushJournal(entry);
+  closeModal();
+}
+
+function renderDifficulties(){
+  const addArea = document.getElementById("difficultiesAddArea");
+  addArea.innerHTML = editMode ? `<button class="small primary" onclick="showAddForm('difficulty')">+ Добавить трудность</button>` : "";
+  const list = document.getElementById("difficultiesList");
+  if(!state.difficulties.length){ list.innerHTML = `<div class="empty">Трудностей не отмечено.</div>`; return; }
+  list.innerHTML = state.difficulties.map(d => `
+    <div class="list-item" style="display:flex;justify-content:space-between;gap:10px;">
+      <span>${d.text}${d.systematic?' <span class="badge pill s30">систематическая</span>':""}</span>
+      ${editMode?`<button class="del" onclick="delNode('difficulties','${d.id}')">удалить</button>`:""}
+    </div>`).join("");
+}
+
+function renderAchievements(){
+  const addArea = document.getElementById("achievementsAddArea");
+  addArea.innerHTML = editMode ? `<button class="small primary" onclick="showAddForm('achievement')">+ Добавить достижение</button>` : "";
+  const list = document.getElementById("achievementsList");
+  if(!state.achievements.length){ list.innerHTML = `<div class="empty">Достижений пока нет.</div>`; return; }
+  list.innerHTML = state.achievements.map(a => `
+    <div class="list-item" style="display:flex;justify-content:space-between;gap:10px;">
+      <span>${a.text}</span>
+      ${editMode?`<button class="del" onclick="delNode('achievements','${a.id}')">удалить</button>`:""}
+    </div>`).join("");
+}
+
+function showAddForm(kind){
+  const isDiff = kind === "difficulty";
+  document.getElementById("modalRoot").innerHTML = `
+    <div class="modal-bg" onclick="if(event.target===this)closeModal()">
+      <div class="modal">
+        <h3>${isDiff?"Новая трудность":"Новое достижение"}</h3>
+        <div class="form-row"><textarea id="genText" placeholder="${isDiff?"например: путает окончания III склонения":"например: освоено первое склонение"}"></textarea></div>
+        ${isDiff?`<div class="form-row"><label><input type="checkbox" id="genSystematic"> систематическая проблема</label></div>`:""}
+        <div class="row">
+          <button class="primary" onclick="submitAddForm('${kind}')">Сохранить</button>
+          <button onclick="closeModal()">Отмена</button>
+        </div>
+      </div>
+    </div>`;
+}
+function submitAddForm(kind){
+  const text = document.getElementById("genText").value.trim();
+  if(!text) return;
+  if(kind === "difficulty"){
+    pushDifficulty({ text, systematic: document.getElementById("genSystematic").checked });
+  }else{
+    pushAchievement({ text, date: new Date().toLocaleDateString("ru-RU") });
+  }
+  closeModal();
+}
+</script>
+</body>
+</html>
