@@ -73,6 +73,14 @@
   .legend span{display:inline-flex;align-items:center;gap:5px;}
   .dot{width:9px;height:9px;border-radius:3px;display:inline-block;}
   footer{text-align:center;color:var(--mut);font-size:12px;margin-top:24px;}
+  .picker-row{display:flex;gap:8px;flex-wrap:wrap;margin-top:6px;margin-bottom:14px;}
+  .picker-btn{font-size:20px;padding:8px 12px;border:1px solid var(--line);border-radius:8px;background:var(--bg2);cursor:pointer;}
+  .picker-btn.text{font-size:13px;padding:8px 12px;}
+  .picker-btn.selected{border-color:var(--teal);background:var(--teal-l);}
+  .fb-thanks{color:var(--teal);font-size:14px;padding:10px 0;}
+  .fb-entry{border-top:1px solid var(--line);padding:10px 0;font-size:13px;}
+  .fb-entry:first-of-type{border-top:none;}
+  .fb-entry .meta{color:var(--mut);}
 </style>
 </head>
 <body>
@@ -111,6 +119,11 @@
       <span><i class="dot" style="background:var(--amber-l)"></i>читаем</span>
       <span><i class="dot" style="background:var(--teal-l)"></i>прочитано</span>
     </div>
+  </section>
+
+  <section>
+    <h2>Как прошёл урок?</h2>
+    <div id="feedbackArea"></div>
   </section>
 
   <section>
@@ -167,18 +180,23 @@ const STATUS_ORDER = ["0","30","70","100"];
 const TOPIC_GROUPS = [
   { title: "Фонетика и алфавит", topics: ["Фонетика и алфавит"] },
   { title: "I-II склонения", topics: ["I-II — Nominativus", "I-II — Genetivus", "I-II — Dativus", "I-II — Accusativus", "I-II — Ablativus", "II склонение — Vocativus"] },
-  { title: "III склонение", topics: ["III — Nominativus", "III — Genetivus", "III — Dativus", "III — Accusativus", "III — Ablativus"] },
-  { title: "IV-V склонения", topics: ["IV-V склонения"] },
+  { title: "III склонение", topics: ["III — Согласный тип", "III — Гласный тип", "III — Смешанный тип"] },
+  { title: "IV-V склонения", topics: ["IV склонение", "V склонение"] },
+  { title: "Предлоги", topics: ["Предлоги"] },
   { title: "Прилагательные", topics: ["Прилагательные I-II склонения", "Прилагательные III склонения", "Прилагательные — Comparativus", "Прилагательные — Superlativus"] },
   { title: "Местоимения", topics: ["Местоимения — притяжательные", "Местоимения — личные", "Местоимения — относительные", "Местоимения — вопросительные", "Местоимения — неопределенные", "Местоимения — отрицательные", "Местоимения — указательные"] },
-  { title: "Глагольная система", topics: ["Praesens", "Imperfectum", "Futurum I", "Perfectum", "Plusquamperfectum", "Futurum II", "Императив — позитивный", "Императив — отрицательный"] },
+  { title: "Глагольная система", topics: ["Praesens", "Imperfectum", "Futurum I", "Perfectum", "Plusquamperfectum", "Futurum II", "Императив — позитивный", "Императив — отрицательный", "Пассивный залог"] },
   { title: "Participium", topics: ["Participium — perfectum passivi", "Participium — praesentis activi"] },
   { title: "Наречия", topics: ["Наречия — Comparativus", "Наречия — Superlativus"] }
 ];
 const ALL_TOPICS = TOPIC_GROUPS.flatMap(g => g.topics);
 const TOTAL_CHAPTERS = 35;
 
-let state = { topics:{}, journal:[], difficulties:[], achievements:[], reading:{} };
+let state = { topics:{}, journal:[], difficulties:[], achievements:[], reading:{}, feedback:[] };
+
+const MOODS = ["😞","😐","🙂","😄","🤩"];
+const DIFFICULTIES = ["Легко","Нормально","Средне","Сложновато","Очень сложно"];
+let fbMood = null, fbDifficulty = null;
 
 function defaultTopics(){
   const t = {};
@@ -194,6 +212,7 @@ db.ref(ROOT).on("value", snap => {
   state.difficulties = val.difficulties ? Object.entries(val.difficulties).map(([id,v]) => ({id, ...v})) : [];
   state.achievements = val.achievements ? Object.entries(val.achievements).map(([id,v]) => ({id, ...v})) : [];
   state.reading = val.reading || {};
+  state.feedback = val.feedback ? Object.entries(val.feedback).map(([id,v]) => ({id, ...v})) : [];
   document.getElementById("statusLine").textContent = "Синхронизировано";
   render();
 });
@@ -201,6 +220,7 @@ db.ref(ROOT).on("value", snap => {
 function saveTopics(){ db.ref(ROOT + "/topics").set(state.topics); }
 function pushJournal(entry){ db.ref(ROOT + "/journal").push(entry); }
 function pushDifficulty(entry){ db.ref(ROOT + "/difficulties").push(entry); }
+function pushFeedback(entry){ db.ref(ROOT + "/feedback").push(entry); }
 function pushAchievement(entry){ db.ref(ROOT + "/achievements").push(entry); }
 function delNode(path,id){ db.ref(ROOT + "/" + path + "/" + id).remove(); }
 function saveReading(){ db.ref(ROOT + "/reading").set(state.reading); }
@@ -242,6 +262,7 @@ function render(){
   renderOverall();
   renderTopicGroups();
   renderReading();
+  renderFeedback();
   renderJournal();
   renderDifficulties();
   renderAchievements();
@@ -311,10 +332,69 @@ function cycleChapter(i){
   saveReading();
 }
 
+function renderFeedback(){
+  const area = document.getElementById("feedbackArea");
+  if(editMode){
+    // teacher sees full history, no submit form
+    if(!state.feedback.length){
+      area.innerHTML = `<div class="empty">Отзывов пока нет.</div>`;
+      return;
+    }
+    const items = [...state.feedback].sort((a,b) => (b.ts||0)-(a.ts||0));
+    area.innerHTML = items.map(f => `
+      <div class="fb-entry">
+        <span class="meta">${f.date||""}</span> — настроение ${f.mood||"—"}, сложность: <b>${f.difficulty||"—"}</b>
+        ${f.comment?`<div>${f.comment}</div>`:""}
+      </div>`).join("");
+    return;
+  }
+  // public write-only form for Ivan
+  area.innerHTML = `
+    <div class="form-row">
+      <label>Настроение</label>
+      <div class="picker-row" id="moodRow">
+        ${MOODS.map(m => `<button type="button" class="picker-btn ${fbMood===m?'selected':''}" onclick="pickMood('${m}')">${m}</button>`).join("")}
+      </div>
+    </div>
+    <div class="form-row">
+      <label>Насколько сложно было?</label>
+      <div class="picker-row" id="diffRow">
+        ${DIFFICULTIES.map(d => `<button type="button" class="picker-btn text ${fbDifficulty===d?'selected':''}" onclick="pickDifficulty('${d}')">${d}</button>`).join("")}
+      </div>
+    </div>
+    <div class="form-row">
+      <label>Комментарий (необязательно)</label>
+      <textarea id="fbComment"></textarea>
+    </div>
+    <button class="primary" onclick="submitFeedback()">Отправить</button>
+    <div id="fbThanks"></div>
+  `;
+}
+function pickMood(m){ fbMood = m; renderFeedback(); }
+function pickDifficulty(d){ fbDifficulty = d; renderFeedback(); }
+function submitFeedback(){
+  if(!fbMood && !fbDifficulty){ alert("Выбери хотя бы настроение или сложность"); return; }
+  const comment = document.getElementById("fbComment").value.trim();
+  pushFeedback({
+    mood: fbMood,
+    difficulty: fbDifficulty,
+    comment,
+    date: new Date().toLocaleDateString("ru-RU"),
+    ts: Date.now()
+  });
+  fbMood = null; fbDifficulty = null;
+  document.getElementById("feedbackArea").innerHTML = `<div class="fb-thanks">Спасибо! Записала 🙂</div>`;
+}
+
 function renderJournal(){
   const addArea = document.getElementById("journalAddArea");
-  addArea.innerHTML = editMode ? `<button class="small primary" onclick="showJournalForm()">+ Добавить занятие</button>` : "";
   const list = document.getElementById("journalList");
+  if(!editMode){
+    addArea.innerHTML = "";
+    list.innerHTML = `<div class="empty">Раздел виден только преподавателю.</div>`;
+    return;
+  }
+  addArea.innerHTML = `<button class="small primary" onclick="showJournalForm()">+ Добавить занятие</button>`;
   const items = [...state.journal].sort((a,b) => (b.lessonNum||0)-(a.lessonNum||0));
   if(!items.length){ list.innerHTML = `<div class="empty">Записей пока нет.</div>`; return; }
   list.innerHTML = items.map(e => `
